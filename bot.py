@@ -22,6 +22,7 @@ logging.basicConfig(
     level=logging.INFO,
 )
 logging.getLogger("httpx").setLevel(logging.WARNING)
+logging.getLogger("apscheduler").setLevel(logging.WARNING)
 logger = logging.getLogger(__name__)
 
 

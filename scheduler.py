@@ -88,8 +88,9 @@ async def end_of_shift_check(app: Application):
     if not (3 == now_msk.hour and 0 <= now_msk.minute < 10):
         return
 
-    # Смена относится ко вчерашнему дню (смена 15:00 вчера → 03:00 сегодня)
-    shift_date = (now_msk - timedelta(hours=3)).date()
+    # Смена 15:00 → 03:00 МСК: в 03:xx уже следующие сутки,
+    # но смена принадлежит ВЧЕРАШНЕМУ дню (дню старта 15:00).
+    shift_date = now_msk.date() - timedelta(days=1)
 
     users = db.get_all_users()
     for user in users:
