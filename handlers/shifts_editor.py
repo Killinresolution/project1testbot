@@ -24,28 +24,31 @@ def _draft_key(year: int, month: int) -> str:
 def _get_draft(context, user_id: int, year: int, month: int) -> dict:
     """
     Возвращает черновик {date_iso: is_working} для месяца.
-    Приоритет: context.user_data → БД → расчёт по 3/3.
+    Приоритет: context.user_data → (3/3 base + кастомные override из БД).
+    Весь месяц всегда предзаполнен по 3/3; кастомные записи из БД
+    перекрывают только те дни, которые пользователь менял вручную.
     """
     key = _draft_key(year, month)
     if key in context.user_data:
         return context.user_data[key]
 
-    existing = db.get_custom_shifts_for_month(user_id, year, month)
-    if existing:
-        context.user_data[key] = existing
-        return existing
-
-    # Предзаполнение по графику 3/3
     user = db.get_user(user_id)
     start_date = (
         date.fromisoformat(user["schedule_start_date"])
         if user else date.today()
     )
-    draft = {}
+
+    # Базовое расписание 3/3 на весь месяц
     last_day = cal_mod.monthrange(year, month)[1]
-    for d in range(1, last_day + 1):
-        day_date = date(year, month, d)
-        draft[day_date.isoformat()] = is_work_day(day_date, start_date)
+    draft = {
+        date(year, month, d).isoformat(): is_work_day(date(year, month, d), start_date)
+        for d in range(1, last_day + 1)
+    }
+
+    # Поверх накладываем кастомные дни пользователя (переопределения)
+    custom = db.get_custom_shifts_for_month(user_id, year, month)
+    draft.update(custom)
+
     context.user_data[key] = draft
     return draft
 
