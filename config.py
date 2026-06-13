@@ -6,7 +6,11 @@ load_dotenv()
 BOT_TOKEN: str = os.getenv("BOT_TOKEN", "")
 
 if not BOT_TOKEN:
-    raise ValueError("BOT_TOKEN не задан в файле .env")
+    raise ValueError(
+        "BOT_TOKEN не задан. "
+        "Локально: создай файл .env и добавь BOT_TOKEN=твой_токен. "
+        "На Railway: добавь переменную BOT_TOKEN в разделе Variables."
+    )
 
 # Часовой пояс МСК для планировщика
 MSK_TZ = "Europe/Moscow"
