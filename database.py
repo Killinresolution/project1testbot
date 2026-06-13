@@ -220,6 +220,34 @@ def set_custom_shifts(user_id: int, shifts: dict):
             """, (user_id, date_iso, 1 if is_working else 0))
 
 
+def cleanup_redundant_custom_shifts():
+    """
+    Удаляет из custom_shifts записи, которые совпадают с базовым графиком 3/3.
+    Нужно вызвать один раз после миграции (например, при запуске бота).
+    """
+    from handlers.schedule_h import is_work_day as _is_work_day
+    with get_conn() as conn:
+        rows = conn.execute("""
+            SELECT cs.user_id, cs.shift_date, cs.is_working,
+                   u.schedule_start_date
+            FROM custom_shifts cs
+            JOIN users u ON cs.user_id = u.user_id
+        """).fetchall()
+        to_delete = []
+        for row in rows:
+            base = _is_work_day(
+                date.fromisoformat(row["shift_date"]),
+                date.fromisoformat(row["schedule_start_date"]),
+            )
+            if bool(row["is_working"]) == base:
+                to_delete.append((row["user_id"], row["shift_date"]))
+        if to_delete:
+            conn.executemany(
+                "DELETE FROM custom_shifts WHERE user_id = ? AND shift_date = ?",
+                to_delete,
+            )
+
+
 def has_any_custom_shifts(user_id: int) -> bool:
     with get_conn() as conn:
         row = conn.execute(

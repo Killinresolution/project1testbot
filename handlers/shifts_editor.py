@@ -184,7 +184,18 @@ async def callback_editor(update: Update, context: ContextTypes.DEFAULT_TYPE):
         key = _draft_key(year, month)
         draft = context.user_data.get(key, {})
 
-        db.set_custom_shifts(user_id, draft)
+        # Сохраняем только отклонения от 3/3, чтобы не засорять БД
+        user_row = db.get_user(user_id)
+        start_date = (
+            date.fromisoformat(user_row["schedule_start_date"])
+            if user_row else date.today()
+        )
+        overrides = {
+            day_iso: val
+            for day_iso, val in draft.items()
+            if val != is_work_day(date.fromisoformat(day_iso), start_date)
+        }
+        db.set_custom_shifts(user_id, overrides)
 
         work_days = sum(1 for v in draft.values() if v)
         off_days  = sum(1 for v in draft.values() if not v)
@@ -262,8 +273,19 @@ async def callback_week_setup(update: Update, context: ContextTypes.DEFAULT_TYPE
 
     if data == "ws_save":
         draft = context.user_data.pop(_WS_KEY, {})
-        if draft:
-            db.set_custom_shifts(user_id, draft)
+        # Сохраняем только дни, которые пользователь реально изменил относительно 3/3
+        user_row = db.get_user(user_id)
+        start_date = (
+            date.fromisoformat(user_row["schedule_start_date"])
+            if user_row else date.today()
+        )
+        overrides = {
+            day_iso: val
+            for day_iso, val in draft.items()
+            if val != is_work_day(date.fromisoformat(day_iso), start_date)
+        }
+        if overrides:
+            db.set_custom_shifts(user_id, overrides)
         work = sum(1 for v in draft.values() if v)
         off = len(draft) - work
         await query.edit_message_text(

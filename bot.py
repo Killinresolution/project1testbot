@@ -32,6 +32,8 @@ async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE):
 async def run_bot():
     db.init_db()
     logger.info("База данных инициализирована.")
+    db.cleanup_redundant_custom_shifts()
+    logger.info("Лишние кастомные смены очищены.")
 
     app = Application.builder().token(config.BOT_TOKEN).build()
 
