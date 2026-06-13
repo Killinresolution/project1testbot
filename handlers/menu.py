@@ -8,8 +8,7 @@ MENU_TEXT = (
     "/schedule — график смен на 7 дней\n"
     "/editschedule — редактор графика на месяц\n"
     "/report day|week|month — HTML-отчёт\n"
-    "/settz — сменить таймзону\n"
-    "/menu — это меню"
+    "/settz — сменить таймзону"
 )
 
 

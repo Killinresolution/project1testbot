@@ -1,9 +1,9 @@
 import os
-import tempfile
+from io import BytesIO
 from datetime import datetime, timedelta
 import pytz
 from jinja2 import Environment, FileSystemLoader
-from telegram import Update
+from telegram import Update, InputFile
 from telegram.ext import ContextTypes, CommandHandler
 import database as db
 
@@ -118,26 +118,19 @@ async def cmd_report(update: Update, context: ContextTypes.DEFAULT_TYPE):
         generated_at  = now_local.strftime("%d.%m.%Y %H:%M"),
     )
 
-    # Сохраняем во временный файл и отправляем
-    with tempfile.NamedTemporaryFile(
-        mode="w", suffix=".html", delete=False, encoding="utf-8", prefix="report_"
-    ) as f:
-        f.write(html_content)
-        tmp_path = f.name
+    filename = f"report_{period}_{now_local.strftime('%Y%m%d')}.html"
+    buf = BytesIO(html_content.encode("utf-8"))
+    buf.name = filename
 
-    try:
-        await update.message.reply_document(
-            document=open(tmp_path, "rb"),
-            filename=f"report_{period}_{now_local.strftime('%Y%m%d')}.html",
-            caption=(
-                f"📊 <b>Отчёт за {PERIOD_LABELS[period].lower()}</b>\n"
-                f"✅ Выполнено: {done_count}/{total} ({pct}%)\n"
-                f"⚠️ Просрочено: {overdue_count}"
-            ),
-            parse_mode="HTML",
-        )
-    finally:
-        os.unlink(tmp_path)
+    await update.message.reply_document(
+        document=InputFile(buf, filename=filename),
+        caption=(
+            f"📊 <b>Отчёт за {PERIOD_LABELS[period].lower()}</b>\n"
+            f"✅ Выполнено: {done_count}/{total} ({pct}%)\n"
+            f"⚠️ Просрочено: {overdue_count}"
+        ),
+        parse_mode="HTML",
+    )
 
 
 def get_handlers() -> list:

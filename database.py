@@ -122,22 +122,15 @@ def get_all_active_tasks() -> list:
 
 
 def get_tasks_for_period(user_id: int, start: datetime, end: datetime) -> list:
-    """
-    Возвращает задачи, у которых дедлайн попадает в период,
-    ИЛИ которые были выполнены в этот период (даже если дедлайн вне него).
-    """
+    """Возвращает задачи, у которых дедлайн попадает в период."""
     with get_conn() as conn:
         return conn.execute("""
             SELECT * FROM tasks
             WHERE user_id = ?
-              AND (
-                deadline BETWEEN ? AND ?
-                OR (is_completed = 1 AND completed_at BETWEEN ? AND ?)
-              )
+              AND deadline BETWEEN ? AND ?
             ORDER BY deadline ASC
         """, (
             user_id,
-            start.isoformat(), end.isoformat(),
             start.isoformat(), end.isoformat(),
         )).fetchall()
 

@@ -65,7 +65,6 @@ async def run_bot():
         BotCommand("editschedule", "Редактор графика на месяц"),
         BotCommand("report",       "HTML-отчёт (day/week/month)"),
         BotCommand("settz",        "Сменить таймзону"),
-        BotCommand("menu",         "Список команд"),
     ])
     await app.start()
     scheduler.start()
