@@ -4,12 +4,18 @@ EzraTest1Bot — точка входа.
 """
 import asyncio
 import logging
+import warnings
 from telegram import Update, BotCommand
+from telegram.warnings import PTBUserWarning
 from telegram.ext import Application, ContextTypes
 import config
 import database as db
 from scheduler import create_scheduler
 from handlers import start, tasks, schedule_h, report, shifts_editor, menu
+
+# Подавляем advisory-предупреждение PTB про per_message в ConversationHandler —
+# наш бот использует sequential-разговоры, поведение per_message=False корректно.
+warnings.filterwarnings("ignore", category=PTBUserWarning, message=".*per_message.*")
 
 logging.basicConfig(
     format="%(asctime)s | %(levelname)-8s | %(name)s — %(message)s",
