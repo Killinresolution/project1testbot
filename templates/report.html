@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Отчёт о задачах — {{ period_label }}</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Segoe UI', Arial, sans-serif;
+      background: #0f1117;
+      color: #e1e4e8;
+      padding: 32px 24px;
+      min-height: 100vh;
+    }
+
+    .header {
+      text-align: center;
+      margin-bottom: 40px;
+    }
+    .header h1 {
+      font-size: 2rem;
+      font-weight: 700;
+      color: #58a6ff;
+      margin-bottom: 6px;
+    }
+    .header p {
+      color: #8b949e;
+      font-size: 0.95rem;
+    }
+
+    /* ── Сводка ──────────────────── */
+    .summary {
+      display: flex;
+      gap: 16px;
+      justify-content: center;
+      flex-wrap: wrap;
+      margin-bottom: 40px;
+    }
+    .card {
+      background: #161b22;
+      border: 1px solid #30363d;
+      border-radius: 12px;
+      padding: 20px 28px;
+      text-align: center;
+      min-width: 140px;
+    }
+    .card .value {
+      font-size: 2.2rem;
+      font-weight: 700;
+      line-height: 1;
+    }
+    .card .label {
+      font-size: 0.8rem;
+      color: #8b949e;
+      margin-top: 6px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .card.green  .value { color: #3fb950; }
+    .card.red    .value { color: #f85149; }
+    .card.blue   .value { color: #58a6ff; }
+    .card.yellow .value { color: #d29922; }
+
+    /* ── Прогресс-бар ─────────────── */
+    .progress-wrap {
+      max-width: 640px;
+      margin: 0 auto 40px;
+    }
+    .progress-wrap h2 {
+      font-size: 1rem;
+      color: #8b949e;
+      margin-bottom: 10px;
+      text-align: center;
+    }
+    .progress-bar {
+      height: 18px;
+      background: #21262d;
+      border-radius: 9px;
+      overflow: hidden;
+    }
+    .progress-fill {
+      height: 100%;
+      border-radius: 9px;
+      background: linear-gradient(90deg, #238636, #3fb950);
+      transition: width 0.6s ease;
+    }
+    .progress-pct {
+      text-align: center;
+      margin-top: 8px;
+      font-size: 1.4rem;
+      font-weight: 700;
+      color: #3fb950;
+    }
+
+    /* ── Таблица задач ────────────── */
+    .section-title {
+      font-size: 1.1rem;
+      font-weight: 600;
+      color: #c9d1d9;
+      margin-bottom: 14px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid #30363d;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 40px;
+      font-size: 0.9rem;
+    }
+    th {
+      background: #161b22;
+      color: #8b949e;
+      font-weight: 600;
+      text-transform: uppercase;
+      font-size: 0.75rem;
+      letter-spacing: 0.05em;
+      padding: 10px 14px;
+      text-align: left;
+      border-bottom: 1px solid #30363d;
+    }
+    td {
+      padding: 12px 14px;
+      border-bottom: 1px solid #21262d;
+      vertical-align: middle;
+    }
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: #161b22; }
+
+    .badge {
+      display: inline-block;
+      padding: 3px 10px;
+      border-radius: 20px;
+      font-size: 0.78rem;
+      font-weight: 600;
+    }
+    .badge-done    { background: #1a3a28; color: #3fb950; }
+    .badge-pending { background: #2d1f1f; color: #f85149; }
+    .badge-day     { background: #1c2d3f; color: #58a6ff; }
+    .badge-week    { background: #2d2516; color: #d29922; }
+    .badge-month   { background: #2a1f36; color: #bc8cff; }
+
+    .empty {
+      text-align: center;
+      color: #8b949e;
+      padding: 40px;
+      font-size: 1rem;
+    }
+
+    .footer {
+      text-align: center;
+      color: #30363d;
+      font-size: 0.8rem;
+      margin-top: 20px;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="header">
+    <h1>📋 Отчёт по задачам</h1>
+    <p>
+      Период: <strong>{{ period_label }}</strong> &nbsp;|&nbsp;
+      {{ date_from }} – {{ date_to }} &nbsp;|&nbsp;
+      Пользователь: <strong>{{ username }}</strong>
+    </p>
+  </div>
+
+  <!-- Сводные карточки -->
+  <div class="summary">
+    <div class="card blue">
+      <div class="value">{{ total }}</div>
+      <div class="label">Всего задач</div>
+    </div>
+    <div class="card green">
+      <div class="value">{{ done }}</div>
+      <div class="label">Выполнено</div>
+    </div>
+    <div class="card red">
+      <div class="value">{{ pending }}</div>
+      <div class="label">Не выполнено</div>
+    </div>
+    <div class="card yellow">
+      <div class="value">{{ overdue }}</div>
+      <div class="label">Просрочено</div>
+    </div>
+  </div>
+
+  <!-- Прогресс -->
+  <div class="progress-wrap">
+    <h2>Прогресс выполнения</h2>
+    <div class="progress-bar">
+      <div class="progress-fill" style="width: {{ pct }}%"></div>
+    </div>
+    <div class="progress-pct">{{ pct }}%</div>
+  </div>
+
+  <!-- Таблица -->
+  <div class="section-title">Список задач</div>
+
+  {% if tasks %}
+  <table>
+    <thead>
+      <tr>
+        <th>#</th>
+        <th>Задача</th>
+        <th>Дедлайн</th>
+        <th>Период</th>
+        <th>Статус</th>
+        <th>Выполнена</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for t in tasks %}
+      <tr>
+        <td>{{ t.id }}</td>
+        <td>{{ t.title }}</td>
+        <td>{{ t.deadline_fmt }}</td>
+        <td>
+          {% if t.period == 'day' %}
+            <span class="badge badge-day">День</span>
+          {% elif t.period == 'week' %}
+            <span class="badge badge-week">Неделя</span>
+          {% else %}
+            <span class="badge badge-month">Месяц</span>
+          {% endif %}
+        </td>
+        <td>
+          {% if t.is_completed %}
+            <span class="badge badge-done">✅ Выполнена</span>
+          {% elif t.overdue %}
+            <span class="badge badge-pending">⚠️ Просрочена</span>
+          {% else %}
+            <span class="badge badge-pending">⏳ В работе</span>
+          {% endif %}
+        </td>
+        <td>{{ t.completed_at_fmt or '—' }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <div class="empty">За выбранный период задач нет.</div>
+  {% endif %}
+
+  <div class="footer">
+    Сгенерировано: {{ generated_at }} &nbsp;|&nbsp; EzraTest1Bot
+  </div>
+
+</body>
+</html>

@@ -1,0 +1,16 @@
+[Unit]
+Description=EzraTest1Bot — Telegram бот планирования смен
+After=network.target
+
+[Service]
+Type=simple
+# Замени /home/user/telegramm bot на реальный путь на сервере
+WorkingDirectory=/home/user/telegramm bot
+ExecStart=/usr/bin/python3 bot.py
+Restart=on-failure
+RestartSec=10
+# Бот читает .env из рабочей директории через python-dotenv
+EnvironmentFile=/home/user/telegramm bot/.env
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,37 @@
+# Секретные данные — никогда не загружать на GitHub
+.env
+
+# База данных SQLite (содержит данные пользователей)
+*.db
+*.sqlite
+*.sqlite3
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+
+# Виртуальное окружение
+venv/
+.venv/
+env/
+ENV/
+
+# Логи
+*.log
+
+# Временные файлы отчётов
+report_*.html
+
+# Railway / CI
+.railway/
+
+# Windows
+Thumbs.db
+desktop.ini
+
+# IDE
+.idea/
+.vscode/
+*.swp
