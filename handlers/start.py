@@ -89,17 +89,28 @@ async def callback_tz(update: Update, context: ContextTypes.DEFAULT_TYPE):
     db.upsert_user(user.id, user.username or user.first_name, tz_name, today)
 
     label = next((l for l, t in TIMEZONES if t == tz_name), tz_name)
-    await query.edit_message_text(
-        f"✅ Таймзона установлена: <b>{label}</b>\n\n"
-        f"График работы 3/3 считается от сегодня ({today}).\n"
-        f"Смены: 15:00 → 03:00 МСК.\n\n"
-        "Команды:\n"
-        "/addtask — добавить задачу\n"
-        "/mytasks — мои задачи\n"
-        "/schedule — график смен на 7 дней\n"
-        "/report day|week|month — HTML-отчёт",
-        parse_mode="HTML",
-    )
+
+    has_schedule = db.has_any_custom_shifts(user.id)
+
+    if not has_schedule:
+        from handlers.shifts_editor import show_week_setup
+        await query.edit_message_text(
+            f"✅ Таймзона установлена: <b>{label}</b>\n\n"
+            "Давай настроим твой рабочий график на ближайшую неделю 👇",
+            parse_mode="HTML",
+        )
+        await show_week_setup(query.message.chat_id, context, user.id)
+    else:
+        await query.edit_message_text(
+            f"✅ Таймзона обновлена: <b>{label}</b>\n\n"
+            "Команды:\n"
+            "/schedule — график смен на 7 дней\n"
+            "/editschedule — редактировать расписание\n"
+            "/addtask — добавить задачу\n"
+            "/mytasks — мои задачи\n"
+            "/report day|week|month — HTML-отчёт",
+            parse_mode="HTML",
+        )
     return ConversationHandler.END
 
 

@@ -3,7 +3,7 @@
 Команда /editschedule открывает интерактивный календарь с кнопками-переключателями.
 """
 import calendar as cal_mod
-from datetime import date
+from datetime import date, timedelta
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.ext import CallbackQueryHandler, CommandHandler, ContextTypes
 import database as db
@@ -197,10 +197,105 @@ async def callback_editor(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
 
+# ─── Week setup (онбординг после выбора таймзоны) ────────────────────────────
+
+_WS_KEY = "ws_week_draft"
+_DAYS_RU = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"]
+
+
+def _build_week_keyboard(draft: dict) -> InlineKeyboardMarkup:
+    rows = []
+    for day_iso in sorted(draft):
+        d = date.fromisoformat(day_iso)
+        name = _DAYS_RU[d.weekday()]
+        icon = "🟢" if draft[day_iso] else "⬜"
+        label = f"{icon} {d.strftime('%d.%m')} {name}"
+        rows.append([InlineKeyboardButton(label, callback_data=f"ws_t_{day_iso}")])
+    rows.append([
+        InlineKeyboardButton("✅ Сохранить", callback_data="ws_save"),
+        InlineKeyboardButton("⏭ Пропустить", callback_data="ws_skip"),
+    ])
+    return InlineKeyboardMarkup(rows)
+
+
+async def show_week_setup(chat_id: int, context: ContextTypes.DEFAULT_TYPE, user_id: int):
+    """Отправляет mini-форму настройки смен на ближайшие 7 дней."""
+    today = date.today()
+    user = db.get_user(user_id)
+    start_date = date.fromisoformat(user["schedule_start_date"]) if user else today
+
+    draft = {
+        (today + timedelta(days=i)).isoformat(): is_work_day(today + timedelta(days=i), start_date)
+        for i in range(7)
+    }
+    context.user_data[_WS_KEY] = draft
+
+    await context.bot.send_message(
+        chat_id=chat_id,
+        text=(
+            "📅 <b>Настрой график на ближайшую неделю</b>\n\n"
+            "🟢 — рабочая смена   ⬜ — выходной\n"
+            "Нажми на день чтобы переключить, затем <b>✅ Сохранить</b>.\n\n"
+            "Нажми <b>⏭ Пропустить</b> — буду считать по графику 3/3 автоматически."
+        ),
+        reply_markup=_build_week_keyboard(draft),
+        parse_mode="HTML",
+    )
+
+
+async def callback_week_setup(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    data = query.data
+    user_id = query.from_user.id
+
+    if data.startswith("ws_t_"):
+        day_iso = data[5:]
+        draft = context.user_data.get(_WS_KEY, {})
+        if day_iso in draft:
+            draft[day_iso] = not draft[day_iso]
+        await query.edit_message_reply_markup(reply_markup=_build_week_keyboard(draft))
+        return
+
+    if data == "ws_save":
+        draft = context.user_data.pop(_WS_KEY, {})
+        if draft:
+            db.set_custom_shifts(user_id, draft)
+        work = sum(1 for v in draft.values() if v)
+        off = len(draft) - work
+        await query.edit_message_text(
+            f"✅ <b>График на неделю сохранён!</b>\n\n"
+            f"🟢 Рабочих: <b>{work}</b>   ⬜ Выходных: <b>{off}</b>\n\n"
+            "Команды:\n"
+            "/schedule — график смен\n"
+            "/editschedule — редактировать расписание\n"
+            "/addtask — добавить задачу\n"
+            "/mytasks — мои задачи\n"
+            "/report day|week|month — HTML-отчёт",
+            parse_mode="HTML",
+        )
+        return
+
+    if data == "ws_skip":
+        context.user_data.pop(_WS_KEY, None)
+        await query.edit_message_text(
+            "Хорошо! Буду автоматически считать по графику 3/3 🔄\n\n"
+            "Команды:\n"
+            "/schedule — график смен\n"
+            "/editschedule — настроить расписание вручную\n"
+            "/addtask — добавить задачу\n"
+            "/mytasks — мои задачи\n"
+            "/report day|week|month — HTML-отчёт",
+            parse_mode="HTML",
+        )
+        return
+
+
 # ─── Регистрация ──────────────────────────────────────────────────────────────
 
 def get_handlers() -> list:
     return [
         CommandHandler("editschedule", cmd_editschedule),
         CallbackQueryHandler(callback_editor, pattern=r"^se_"),
+        CallbackQueryHandler(callback_week_setup, pattern=r"^ws_"),
     ]

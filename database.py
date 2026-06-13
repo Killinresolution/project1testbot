@@ -220,6 +220,14 @@ def set_custom_shifts(user_id: int, shifts: dict):
             """, (user_id, date_iso, 1 if is_working else 0))
 
 
+def has_any_custom_shifts(user_id: int) -> bool:
+    with get_conn() as conn:
+        row = conn.execute(
+            "SELECT 1 FROM custom_shifts WHERE user_id = ? LIMIT 1", (user_id,)
+        ).fetchone()
+    return row is not None
+
+
 def is_custom_work_day(user_id: int, target_date: date) -> Optional[bool]:
     """True/False если задан кастомный день, None если использовать 3/3."""
     with get_conn() as conn:
