@@ -111,7 +111,12 @@ def _editor_text(year: int, month: int) -> str:
 async def cmd_editschedule(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     if not db.get_user(user_id):
-        await update.message.reply_text("Сначала выполни /start для регистрации.")
+        await update.message.reply_text(
+            "Ты ещё не зарегистрирован. Нажми /start — это займёт 10 секунд 👇",
+            reply_markup=InlineKeyboardMarkup([[
+                InlineKeyboardButton("🚀 Начать", callback_data="go_start"),
+            ]]),
+        )
         return
 
     today = date.today()
@@ -257,6 +262,20 @@ async def show_week_setup(chat_id: int, context: ContextTypes.DEFAULT_TYPE, user
     )
 
 
+def _rebuild_week_draft(user_id: int) -> dict:
+    """Пересобирает 7-дневный черновик из 3/3, если user_data был потерян."""
+    today = date.today()
+    user_row = db.get_user(user_id)
+    start_date = (
+        date.fromisoformat(user_row["schedule_start_date"])
+        if user_row else today
+    )
+    return {
+        (today + timedelta(days=i)).isoformat(): is_work_day(today + timedelta(days=i), start_date)
+        for i in range(7)
+    }
+
+
 async def callback_week_setup(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
@@ -265,20 +284,31 @@ async def callback_week_setup(update: Update, context: ContextTypes.DEFAULT_TYPE
 
     if data.startswith("ws_t_"):
         day_iso = data[5:]
-        draft = context.user_data.get(_WS_KEY, {})
-        if day_iso in draft:
-            draft[day_iso] = not draft[day_iso]
+        # Если черновик потерялся (перезапуск бота) — пересобираем из 3/3
+        if _WS_KEY not in context.user_data:
+            context.user_data[_WS_KEY] = _rebuild_week_draft(user_id)
+        draft = context.user_data[_WS_KEY]
+        draft[day_iso] = not draft.get(day_iso, False)
         await query.edit_message_reply_markup(reply_markup=_build_week_keyboard(draft))
         return
 
     if data == "ws_save":
-        draft = context.user_data.pop(_WS_KEY, {})
-        # Сохраняем только дни, которые пользователь реально изменил относительно 3/3
+        # Если черновик потерялся — пересобираем из 3/3 (сохранять нечего, только считаем)
+        draft = context.user_data.pop(_WS_KEY, None)
         user_row = db.get_user(user_id)
-        start_date = (
-            date.fromisoformat(user_row["schedule_start_date"])
-            if user_row else date.today()
-        )
+
+        if not user_row:
+            await query.edit_message_text(
+                "⚠️ Сессия устарела. Пожалуйста, выполни /start заново.",
+            )
+            return
+
+        start_date = date.fromisoformat(user_row["schedule_start_date"])
+
+        if draft is None:
+            draft = _rebuild_week_draft(user_id)
+
+        # Сохраняем только отклонения от 3/3
         overrides = {
             day_iso: val
             for day_iso, val in draft.items()
@@ -286,6 +316,7 @@ async def callback_week_setup(update: Update, context: ContextTypes.DEFAULT_TYPE
         }
         if overrides:
             db.set_custom_shifts(user_id, overrides)
+
         work = sum(1 for v in draft.values() if v)
         off = len(draft) - work
         await query.edit_message_text(
@@ -316,6 +347,16 @@ async def callback_week_setup(update: Update, context: ContextTypes.DEFAULT_TYPE
         return
 
 
+async def _callback_go_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    from handlers.start import build_tz_keyboard
+    await query.edit_message_text(
+        "Выбери свою таймзону:",
+        reply_markup=build_tz_keyboard(),
+    )
+
+
 # ─── Регистрация ──────────────────────────────────────────────────────────────
 
 def get_handlers() -> list:
@@ -323,4 +364,5 @@ def get_handlers() -> list:
         CommandHandler("editschedule", cmd_editschedule),
         CallbackQueryHandler(callback_editor, pattern=r"^se_"),
         CallbackQueryHandler(callback_week_setup, pattern=r"^ws_"),
+        CallbackQueryHandler(_callback_go_start, pattern=r"^go_start$"),
     ]
